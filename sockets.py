@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 import flask
-from flask import Flask, request
+from flask import Flask, request, redirect
 from flask_sockets import Sockets
 import gevent
 from gevent import queue
@@ -63,25 +63,48 @@ myWorld = World()
 
 def set_listener( entity, data ):
     ''' do something with the update ! '''
+    # XXX: TODO IMPLEMENT ME
+    for client in myWorld.listeners:                            # for each client in listeners
+        client.put(json.dumps({entity: data}))                  # send message to client
+        
 
 myWorld.add_set_listener( set_listener )
         
 @app.route('/')
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    return redirect("/static/index.html", code=302)
 
 def read_ws(ws,client):
     '''A greenlet function that reads from the websocket and updates the world'''
     # XXX: TODO IMPLEMENT ME
-    return None
+    try: 
+        while True:
+            msg = ws.receive()                                  # receive message from client
+            if msg is not None:                                 # if message is not empty
+                packet = json.loads(msg)                        # load message into packet
+                myWorld.set(packet["entity"], packet["data"])   # update world with packet
+            else:
+                break                                           # if message is empty, break
+    except:
+        '''Done'''
 
 @sockets.route('/subscribe')
 def subscribe_socket(ws):
     '''Fufill the websocket URL of /subscribe, every update notify the
        websocket and read updates from the websocket '''
     # XXX: TODO IMPLEMENT ME
+    # client = Client()                                           # get client name
+    # myWorld.listeners.append(read_ws)                           # add client to listeners
+    # g = gevent.spawn(read_ws, ws, client)                       # spawn greenlet
+    # try:
+    #     while True:
+    #         msg = ws.receive()                                  # receive message from client
     return None
+
+
+
+
 
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask
