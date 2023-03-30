@@ -58,18 +58,21 @@ class World:
     
     def world(self):
         return self.space
+    
 
 myWorld = World()        
 
 def set_listener( entity, data ):
     ''' do something with the update ! '''
     # XXX: TODO IMPLEMENT ME
-    for client in myWorld.listeners:                            # for each client in listeners
-        client.put(json.dumps({entity: data}))                  # send message to client
+    message = json.dumps({entity: data})                    # create message from entity and data
+    for listener in myWorld.listeners:                      # for each listener in listeners
+        if isinstance(listener, queue.Queue):               # check if the listener is an instance of queue.Queue
+            listener.put(message)                           # if it is, put the message in the queue
         
 
 myWorld.add_set_listener( set_listener )
-        
+    
 @app.route('/')
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
@@ -94,13 +97,19 @@ def subscribe_socket(ws):
     '''Fufill the websocket URL of /subscribe, every update notify the
        websocket and read updates from the websocket '''
     # XXX: TODO IMPLEMENT ME
-    # client = Client()                                           # get client name
-    # myWorld.listeners.append(read_ws)                           # add client to listeners
-    # g = gevent.spawn(read_ws, ws, client)                       # spawn greenlet
-    # try:
-    #     while True:
-    #         msg = ws.receive()                                  # receive message from client
-    return None
+    client = queue.Queue()                                      # create client queue
+    myWorld.listeners.append(client)                            # add client to listeners
+    g = gevent.spawn(read_ws, ws, client)                       # something spawn i forgot what gevent does
+    try:
+        while True:
+            msg = client.queue.get()                            # get message from client
+            ws.send(msg)                                        # send message to websocket
+    except Exception as e:# WebSocketError as e:
+        print("WS Error %s" % e)
+    finally:
+        myWorld.listeners.remove(client)                        # remove client from listeners
+        gevent.kill(g)                                          # kill greenlet
+    
 
 
 
@@ -122,23 +131,31 @@ def flask_post_json():
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
     '''update the entities via this interface'''
-    return None
+    if request.method == 'POST':
+        myWorld.set(entity, flask_post_json())
+        return json.dumps(myWorld.get(entity))
+    elif request.method == 'PUT':
+        data = flask_post_json()
+        for key, value in data.items():
+            myWorld.update(entity, key, value)
+        return json.dumps(myWorld.get(entity))
 
 @app.route("/world", methods=['POST','GET'])    
 def world():
     '''you should probably return the world here'''
-    return None
+    return json.dumps(myWorld.world())
 
 @app.route("/entity/<entity>")    
 def get_entity(entity):
     '''This is the GET version of the entity interface, return a representation of the entity'''
-    return None
+    return json.dumps(myWorld.get(entity))
 
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
-    return None
+    myWorld.clear()
+    return redirect("/static/index.html", code=200)
 
 
 
