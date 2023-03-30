@@ -125,7 +125,14 @@ function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just modified!
-}
+    //XXX: This is a bit of a hack, but it works
+    var url = "http://"+host+"/entity/"+entity;
+    var xhr = new XMLHttpRequest();
+    xhr.open("PUT", url, true);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.send(JSON.stringify(data));
+};
+
 var counter = 0;
 function addEntityWithoutName(data) {
     var name = "X"+(counter++)%100;
@@ -252,8 +259,9 @@ function update() {
 function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
     socket = new WebSocket(url);
-    socket.onopen = function() {
+    socket.onopen = function(msg) {
         //XXX: TODO What are you going to do here?
+        debug("WebSocket Opened:" + msg.data);
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,7 +269,18 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            //XXX: TODO What are you going to do here?
+            var data = JSON.parse(msg.data);
+            console.log(msg.data); 
+            if (data.type == "entity") {
+                world[data.entity] = data.data;
+                drawNextFrame();
+            } else if (data.type == "delete") {
+                delete world[data.entity];
+                drawNextFrame();
+            } else {
+                debug("Unknown message type: " + data.type);
+            }
         } catch (e) {
             alert("socket on message: " + e);
         }
