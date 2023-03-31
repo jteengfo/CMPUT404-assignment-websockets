@@ -58,18 +58,7 @@ class World:
     
     def world(self):
         return self.space
-    
 
-myWorld = World()        
-
-def set_listener( entity, data ):
-    ''' do something with the update ! '''
-    # # XXX: TODO IMPLEMENT ME
-    message = json.dumps({entity: data})                      # message from updated entity and data
-    # for listener in myWorld.listeners:                      # for each listener in listeners
-    #     listener.put(message)                               # if it is, put the message in the queue
-    send_all(message)
-    
 class Client:
     def __init__(self):
         self.queue = queue.Queue()
@@ -79,14 +68,22 @@ class Client:
 
     def get(self):
         return self.queue.get()
-
+   
+def set_listener( entity, data ):
+    ''' do something with the update ! '''
+    # # XXX: TODO IMPLEMENT ME
+    message = json.dumps({entity: data})                      # message from updated entity and data
+    for listener in myWorld.listeners:
+        listener.put(message)
+    
 def send_all(msg):
-    for client in myWorld.listeners:
-        client.put( msg )
-
+    for listener in myWorld.listeners:
+        listener.put(msg)
+        
 def send_all_json(obj):
     send_all( json.dumps(obj) )
 
+myWorld = World()        
 
 myWorld.add_set_listener( set_listener )
     
@@ -101,9 +98,14 @@ def read_ws(ws,client):
     try: 
         while True:
             msg = ws.receive()                                  # receive message from client
+            print(msg)
             if msg is not None:                                 # if message is not empty
+                print(f"Received message from client: {msg}")
                 packet = json.loads(msg)                        # load message into packet
-                send_all_json(packet)
+                
+                for entity, data in packet.items():
+                    for key, value in data.items():
+                        myWorld.update(entity, key, value)
             else:
                 break                                           # if message is empty, break
     except:
@@ -116,10 +118,9 @@ def subscribe_socket(ws):
     # XXX: TODO IMPLEMENT ME
     client = Client()                                       # create client queue
     myWorld.add_set_listener(client)                            # add client to listeners
-    g = gevent.spawn(read_ws, ws, client)                       # something spawn i forgot what gevent does
+    ws.send(json.dumps(myWorld.world()))
 
-    # current_world = json.dumps(myWorld.world())                 # get current world
-    # ws.send(current_world)
+    g = gevent.spawn(read_ws, ws, client)                       # something spawn i forgot what gevent does
     try:
         while True:
             msg = client.get()                                  # get message from client
