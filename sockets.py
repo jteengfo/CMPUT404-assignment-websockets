@@ -64,12 +64,29 @@ myWorld = World()
 
 def set_listener( entity, data ):
     ''' do something with the update ! '''
-    # XXX: TODO IMPLEMENT ME
-    message = json.dumps({entity: data})                    # create message from entity and data
-    for listener in myWorld.listeners:                      # for each listener in listeners
-        if isinstance(listener, queue.Queue):               # check if the listener is an instance of queue.Queue
-            listener.put(message)                           # if it is, put the message in the queue
-        
+    # # XXX: TODO IMPLEMENT ME
+    message = json.dumps({entity: data})                      # message from updated entity and data
+    # for listener in myWorld.listeners:                      # for each listener in listeners
+    #     listener.put(message)                               # if it is, put the message in the queue
+    send_all(message)
+    
+class Client:
+    def __init__(self):
+        self.queue = queue.Queue()
+
+    def put(self, v):
+        self.queue.put_nowait(v)
+
+    def get(self):
+        return self.queue.get()
+
+def send_all(msg):
+    for client in myWorld.listeners:
+        client.put( msg )
+
+def send_all_json(obj):
+    send_all( json.dumps(obj) )
+
 
 myWorld.add_set_listener( set_listener )
     
@@ -86,7 +103,7 @@ def read_ws(ws,client):
             msg = ws.receive()                                  # receive message from client
             if msg is not None:                                 # if message is not empty
                 packet = json.loads(msg)                        # load message into packet
-                myWorld.set(packet["entity"], packet["data"])   # update world with packet
+                send_all_json(packet)
             else:
                 break                                           # if message is empty, break
     except:
@@ -97,12 +114,16 @@ def subscribe_socket(ws):
     '''Fufill the websocket URL of /subscribe, every update notify the
        websocket and read updates from the websocket '''
     # XXX: TODO IMPLEMENT ME
-    client = queue.Queue()                                      # create client queue
-    myWorld.listeners.append(client)                            # add client to listeners
+    client = Client()                                       # create client queue
+    myWorld.add_set_listener(client)                            # add client to listeners
     g = gevent.spawn(read_ws, ws, client)                       # something spawn i forgot what gevent does
+
+    # current_world = json.dumps(myWorld.world())                 # get current world
+    # ws.send(current_world)
     try:
         while True:
-            msg = client.queue.get()                            # get message from client
+            msg = client.get()                                  # get message from client
+            print("got a message.")
             ws.send(msg)                                        # send message to websocket
     except Exception as e:# WebSocketError as e:
         print("WS Error %s" % e)
@@ -110,10 +131,6 @@ def subscribe_socket(ws):
         myWorld.listeners.remove(client)                        # remove client from listeners
         gevent.kill(g)                                          # kill greenlet
     
-
-
-
-
 
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask
