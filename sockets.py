@@ -47,8 +47,17 @@ class World:
 
     def update_listeners(self, entity):
         '''update the set listeners'''
+        print("Listeners:", self.listeners)
+        print("number of listeners:", len(self.listeners))
         for listener in self.listeners:
-            listener(entity, self.get(entity))
+            print("sending to listener:")
+            # listener
+            listener.put(json.dumps({entity: self.get(entity)}))
+            # listener.put(entity, self.get(entity)
+            # listener.put(json.dumps({"entity": entity, "data": self.get(entity)}))
+            # listener.put(json.dump({entity: self.get(entity)}))
+            # listener(entity, self.get(entity))
+        pass
 
     def clear(self):
         self.space = dict()
@@ -72,20 +81,21 @@ class Client:
 def set_listener( entity, data ):
     ''' do something with the update ! '''
     # # XXX: TODO IMPLEMENT ME
-    message = json.dumps({entity: data})                      # message from updated entity and data
-    for listener in myWorld.listeners:
-        listener.put(message)
+    # message = json.dumps({entity: data})                      # message from updated entity and data
+    # for listener in myWorld.listeners:
+    #     listener.put(message)
+    pass
     
-def send_all(msg):
-    for listener in myWorld.listeners:
-        listener.put(msg)
+# def send_all(msg):
+#     for listener in myWorld.listeners:
+#         listener.put(msg)
         
-def send_all_json(obj):
-    send_all( json.dumps(obj) )
+# def send_all_json(obj):
+#     send_all( json.dumps(obj) )
 
 myWorld = World()        
 
-myWorld.add_set_listener( set_listener )
+# myWorld.add_set_listener( set_listener )
     
 @app.route('/')
 def hello():
@@ -98,18 +108,32 @@ def read_ws(ws,client):
     try: 
         while True:
             msg = ws.receive()                                  # receive message from client
-            print(msg)
+            print("Check1")
+            # print(msg)
+            print("received {}".format(msg))
             if msg is not None:                                 # if message is not empty
                 print(f"Received message from client: {msg}")
                 packet = json.loads(msg)                        # load message into packet
-                
-                for entity, data in packet.items():
-                    for key, value in data.items():
-                        myWorld.update(entity, key, value)
+                print(f"Packet: {packet}")
+                print("Type: ", type(packet))
+                # print("entity: ", packet["entity"])
+                # print("data: ", packet["data"])
+                for key in packet:
+                    # print("key: ", key)
+                    # print("value: ", value)
+                    myWorld.set(key, packet[key])
+                # myWorld.set(packet["entity"], packet["data"])
+                # myWorld.set(packet["entity"], packet["data"])
+                # for entity, data in packet.items():
+                    # for key, value in data.items():
+                    #     myWorld.update(entity, key, value)
             else:
                 break                                           # if message is empty, break
-    except:
-        '''Done'''
+    except Exception as e:
+        print("WS Error %s" % e)
+    # except:
+    #     # '''Done'''
+    #     print("Some error occured.")
 
 @sockets.route('/subscribe')
 def subscribe_socket(ws):
@@ -119,12 +143,13 @@ def subscribe_socket(ws):
     client = Client()                                       # create client queue
     myWorld.add_set_listener(client)                            # add client to listeners
     ws.send(json.dumps(myWorld.world()))
-
+    print("Got a client websocket subscription")
     g = gevent.spawn(read_ws, ws, client)                       # something spawn i forgot what gevent does
     try:
         while True:
             msg = client.get()                                  # get message from client
             print("got a message.")
+            print("sending %s" % msg)
             ws.send(msg)                                        # send message to websocket
     except Exception as e:# WebSocketError as e:
         print("WS Error %s" % e)

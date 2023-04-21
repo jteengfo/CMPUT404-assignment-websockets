@@ -130,8 +130,11 @@ function addEntity(entity, data) {
     // xhr.open("PUT", url, true);
     // xhr.setRequestHeader("Content-Type", "application/json");
     // xhr.send(JSON.stringify(data));
-    console.log("Adding entity:", entity, data);
-    socket.send(JSON.stringify({"entity": entity, "data": data}));
+    var message = {};                    
+    message[entity] = data;
+    socket.send(JSON.stringify(message));
+    console.log("Data sent to the socket", JSON.stringify(message))
+    // console.log("Data sent to the socket", JSON.stringify({"entity": entity, "data": data}))
     drawNextFrame();
     console.log("sent to the socket")
     
@@ -266,22 +269,29 @@ function wsSetup() {
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
         debug("WebSocket Opened:");
-        socket.send("Client connected");
+        // socket.send("Client connected");
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
     };
     socket.onmessage = function(msg) {                      // message triggeres when client receives a message from the server
         try {
+            console.log("Received message from the socket", msg.data);
             debug("WebSocket Recv:" + msg.data);
             //XXX: TODO What are you going to do here?
             var data = JSON.parse(msg.data);
-            for (var entity in data) {
-                var entityData = data[entity];
-                world[entity] = entityData;
-                drawNextFrame();
+            // console.log("Parsed message data:", data);
+            // console.log("Parsed message entity:", data['entity']);
+            // console.log("Parsed message data:", data['data']);
+            // addEntity(data['entity'],data['data']);
+            // world[data['entity']] = data['data'];
+            console.log("keys: ", Object.keys(data))
+
+            for (entity in data) {
+                world[entity] = data[entity];
             }
-            console.log("Parsed message data:", data);
+            drawNextFrame();
+            // console.log("Parsed message data:", data);
         } catch (e) {
             alert("socket on message: " + e);
         }
